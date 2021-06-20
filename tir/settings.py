@@ -18,7 +18,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 settings_dir = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.abspath(os.path.dirname(settings_dir))
 MODEL_PATH = os.path.join(PROJECT_ROOT, 'apollo/w2v/GoogleNews-vectors-negative300.bin.gz')
-MODEL = KeyedVectors.load_word2vec_format(MODEL_PATH, unicode_errors = 'replace', binary = 'True', limit=10000)
+MODEL = KeyedVectors.load_word2vec_format(
+    MODEL_PATH, unicode_errors='replace', binary='True', limit=10000)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.10/howto/deployment/checklist/
@@ -29,7 +30,7 @@ SECRET_KEY = ')p1#0dnupk$xc59wdfl^%!7)4myi--la+xd4=$krk&a55$%0rz'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['portal04.cs.virginia.edu']
 
 
 # Application definition
