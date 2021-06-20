@@ -4,10 +4,6 @@
 
 #### 1. Pre-requisites
 
-> The app uses the following packages - python v3.6, pip, pipenv.
->
-> Please make sure you have a python development environment setup and these packages installed.
-
 Clone the repo
 
 ```bash
@@ -15,17 +11,15 @@ git clone https://github.com/thedrumsknight/tir.git
 cd tir
 ```
 
-Setup a `virtualenv` and install the dependencies from `Pipfile.lock`
+Setup a conda or pip `virtualenv` and install the dependencies from `requirements.txt`
 
 ```bash
-# Setup python3.6 virtualenv
-pipenv --three
+# Setup python3.9 virtualenv using conda
+conda create --name py35 python=3.9
 
 # Install dependencies
-pipenv install
+pip install -r requirements.txt
 
-# Run this to verify your installation
-pipenv check
 ```
 
 **NOTE:** You need to copy the pre-trained model (~1.3GB, download [here](https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/view?usp=sharing)) to the `apollo/w2v` directory before running the app
@@ -62,7 +56,3 @@ pipenv run python manage.py runserver
 ```
 
 You should be able to see the app running at [http://localhost:8000/](http://localhost:8000/)
-
-> Note: Since this project uses [pipenv](https://docs.pipenv.org/), all python commands can be used normally by prepending `pipenv run` to them.
->
-> This runs the command in the virtual env where the dependencies of the project exist.
