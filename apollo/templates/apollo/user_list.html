@@ -16,7 +16,7 @@
 
 {% block script %}
   <script>
-    var socket = new WebSocket('ws://' + window.location.host + '/users/');
+    var socket = new WebSocket('ws://' + window.location.host + '/ws/tir/');
 
     socket.onopen = function open(evt) {
       console.log('WebSockets connection created.');
@@ -53,7 +53,7 @@
       	for (var i = data['wordOptions'].length - 1; i >= 0; i--) {
       		$('#wordOptions').append(
       		'<button type="button" class="optionButton" onclick="wordClick(value)" value=' + String(data['wordOptions'][i]) + '>' + String(data['wordOptions'][i]) + '</button>'
-      		);	
+      		);
       	}
       }
 
@@ -63,7 +63,7 @@
       	for (var i = data['leaderboard'].length - 1; i >= 0; i--) {
       		$('#leaderboard').append(
       		'<tr><td>'+ data['leaderboard'][i]['name'] +'</td><td>'+ data['leaderboard'][i]['points'] + '</td></tr>'
-      		);	
+      		);
       	}
       }
     };
