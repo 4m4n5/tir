@@ -15,7 +15,7 @@ Setup a conda or pip `virtualenv` and install the dependencies from `requirement
 
 ```bash
 # Setup python3.9 virtualenv using conda
-conda create --name py35 python=3.9
+conda create --name tir python=3.9
 
 # Install dependencies
 pip install -r requirements.txt
