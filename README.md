@@ -46,13 +46,13 @@ pipenv run python manage.py migrate
 # Open python shell
  pipenv run python manage.py shell
 
-# Inside python shell
+# Inside python shell to initialize the database
 >>> from apollo.models import *
->>> TargetWord.objects.create(word=‘car’)
+>>> TargetWord.objects.create(word=‘car’, completed_from=’dog’)
 >>> exit()
 
 # Run the app
-pipenv run python manage.py runserver
+pipenv run python manage.py runserver 8000
 ```
 
 You should be able to see the app running at [http://localhost:8000/](http://localhost:8000/)
