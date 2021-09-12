@@ -34,7 +34,7 @@ SECRET_KEY = ")p1#0dnupk$xc59wdfl^%!7)4myi--la+xd4=$krk&a55$%0rz"
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["portal04.cs.virginia.edu", "localhost"]
+ALLOWED_HOSTS = ["portal03.cs.virginia.edu", "portal04.cs.virginia.edu", "localhost"]
 
 
 # Application definition
