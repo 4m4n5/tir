@@ -1,93 +1,195 @@
 import json
 from apollo.models import LoggedInUser, Player, TargetWord
-from apollo.helpers import *
-from asgiref.sync import async_to_sync
+from apollo.helpers import STARTER_WORDS, TARGET_WORDS, wordnet_lemmatizer
+from asgiref.sync import async_to_sync, sync_to_async
 from channels.generic.websocket import WebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+
+from apollo.models import LoggedInUser, Player, TargetWord
+import random
+from nltk.stem import WordNetLemmatizer
+from tir.settings import MODEL_PATH, MODEL
 
 
-class Consumer(WebsocketConsumer):
-    def connect(self):
-        # Get player's username
-        username = self.scope['user'].get_username()
-
-        # Set player's logged in status in DB
+class Consumer(AsyncWebsocketConsumer):
+    @database_sync_to_async
+    def log_player_in(self, username):
         player = Player.objects.get(name=username)
         player.is_logged_in = True
         player.save()
 
-        # Add user to a group
-        group_name = "online"
-        async_to_sync(self.channel_layer.group_add)(
-            group_name,
-            self.channel_name
-        )
+    @database_sync_to_async
+    def log_player_out(self, username):
+        player = Player.objects.get(name=username)
+        player.is_logged_in = False
+        player.save()
 
-        # Get number of online users
-        active_users = len(Player.objects.filter(is_logged_in=True))
+    @database_sync_to_async
+    def add_word_to_player_path(self, username, word):
+        player = Player.objects.get(name=username)
+        player.add_to_path(word)
+        player.save()
+
+    @database_sync_to_async
+    def give_player_points(self, username, num_points):
+        player = Player.objects.get(name=username)
+        player.add_points(num_points)
+        player.save()
+
+    @database_sync_to_async
+    def get_player_path(self, username):
+        player = Player.objects.get(name=username)
+        return player.get_path_list()
+
+    @database_sync_to_async
+    def get_active_users(self):
+        users = Player.objects.filter(is_logged_in=True)
+        return users, len(users)
+
+    @database_sync_to_async
+    def get_target_word(self):
+        return TargetWord.objects.latest("datetime").word
+
+    @database_sync_to_async
+    def get_previous_target_word_details(self):
+        word = str(TargetWord.objects.order_by("-datetime")[1].word)
+        completed_from = str(TargetWord.objects.order_by("-datetime")[1].completed_from)
+        completed_in = str(TargetWord.objects.order_by("-datetime")[1].completed_in)
+
+        return [word, completed_from, completed_in]
+
+    @database_sync_to_async
+    def get_starter_words(self):
+        random.shuffle(STARTER_WORDS)
+        return STARTER_WORDS[:4]
+
+    @database_sync_to_async
+    def get_leaderboard(self):
+        leaderboard = []
+        top_players = Player.objects.order_by("-points")[:20]
+        for player in top_players:
+            leaderboard.append({"name": player.name, "points": player.points})
+        return leaderboard
+
+    @database_sync_to_async
+    def set_target_word(self, previous_target):
+        word = random.choice(TARGET_WORDS)
+        while word == previous_target:
+            word = random.choice(TARGET_WORDS)
+        TargetWord.objects.create(word=word)
+        return word
+
+    @sync_to_async
+    def get_word_options(self, word, pre_used_words):
+        # Use word2vec to send 4 closest words to 'word'
+        import pdb
+
+        pdb.set_trace()
+        num_options = len(pre_used_words) + 20
+        options = MODEL.most_similar(word, topn=40)
+        w = [
+            i
+            for i in w
+            if (
+                i.lower() not in pre_used_words
+                and wordnet_lemmatizer.lemmatize(i).lower() not in pre_used_words
+            )
+        ]
+        w = f7(w)
+        return w[:4]
+
+    async def connect(self):
+        # Get player's username
+        username = self.scope["user"].get_username()
+
+        # Set player's logged in status in DB
+        player = await self.log_player_in(username)
+
+        # Add user to a group
+        # Currently everyone is added to the same group
+        group_name = "online"
+        await self.channel_layer.group_add(group_name, self.channel_name)
+
+        await self.accept()
 
         # Get payload to send back
-        target_word = get_target_word()
-        starter_words = get_starter_words()
-        previous_target_word, completed_from, completed_in = get_previous_target_word_details()
-        leaderboard = get_leaderboard()
+        target_word = await self.get_target_word()
+        leaderboard = await self.get_leaderboard()
+        _, active_users = await self.get_active_users()
+        starter_words = await self.get_starter_words()
+        [
+            previous_target_word,
+            completed_from,
+            completed_in,
+        ] = await self.get_previous_target_word_details()
 
         # Send message to the relevant group
-        async_to_sync(self.channel_layer.group_send)(
+        await self.channel_layer.group_send(
             group_name,
             {
-                'type': 'broadcast_active_users',
-                'activeUsers': active_users,
-                        'leaderboard': leaderboard
-            }
+                "type": "broadcast_active_users",
+                "activeUsers": active_users,
+                "leaderboard": leaderboard,
+            },
         )
-        self.accept()
-        self.send(text_data=json.dumps({
-            'targetWord': target_word,
-            'completedIn': completed_in,
-            'completedFrom': completed_from,
-            'wordOptions': starter_words,
-            'leaderboard': leaderboard,
-            'previousTargetWord': previous_target_word
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "targetWord": target_word,
+                    "completedIn": completed_in,
+                    "completedFrom": completed_from,
+                    "wordOptions": starter_words,
+                    "leaderboard": leaderboard,
+                    "previousTargetWord": previous_target_word,
+                }
+            )
+        )
 
-    def broadcast_active_users(self, data):
-        active_users = data['activeUsers']
-        leaderboard = data['leaderboard']
+    async def broadcast_active_users(self, data):
+        active_users = data["activeUsers"]
+        leaderboard = data["leaderboard"]
 
-        self.send(text_data=json.dumps({
-            'activeUsers': active_users,
-            'leaderboard': leaderboard
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {"activeUsers": active_users, "leaderboard": leaderboard}
+            )
+        )
 
-    def broadcast_new_word(self, data):
-        self.send(text_data=json.dumps({
-            'targetWord': data['targetWord'],
-            'leaderboard': data['leaderboard'],
-            'completedFrom': data['completedFrom'],
-            'completedIn': data['completedIn'],
-            'previousTargetWord': data['previousTargetWord'],
-        }))
+    async def broadcast_new_word(self, data):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "targetWord": data["targetWord"],
+                    "leaderboard": data["leaderboard"],
+                    "completedFrom": data["completedFrom"],
+                    "completedIn": data["completedIn"],
+                    "previousTargetWord": data["previousTargetWord"],
+                }
+            )
+        )
 
-    def receive(self, text_data):
+    async def receive(self, text_data):
         data = json.loads(text_data)
-        username = self.scope['user'].get_username()
-        player = Player.objects.get(name=username)
+        username = self.scope["user"].get_username()
 
         # Get clicked word
-        clicked_word = data['word']
+        clicked_word = data["word"]
         # Add clicked word to player's path
-        player.add_to_path(clicked_word)
+        await self.add_word_to_player_path(username, clicked_word)
         # Get current target word
-        current_target_word = get_target_word()
+        current_target_word = await self.get_target_word()
 
         # if player selected final word
         if clicked_word == current_target_word:
             # Give player points
-            player.points = player.points + len(Player.objects.filter(is_logged_in=True))
-            player.save()
+            _, num_points = await self.get_active_users()
+            await self.give_player_points(username, num_points)
 
-            completed_in = len(player.get_path_list())
-            completed_from = player.get_path_list()[0]
+            # Get player path
+            player_path = await self.get_player_path(username)
+            completed_in = len(player_path)
+            completed_from = player_path[0]
 
             # Update copmpleted word entry
             completed_word = TargetWord.objects.get(word=clicked_word)
@@ -107,53 +209,41 @@ class Consumer(WebsocketConsumer):
 
             group_name = "online"
             # Send message to the relevant group
-            async_to_sync(self.channel_layer.group_send)(
+            await self.channel_layer.group_send(
                 group_name,
                 {
-                    'type': 'broadcast_new_word',
-                    'targetWord': new_target_word,
-                    'leaderboard': leaderboard,
-                    'completedFrom': completed_from,
-                    'completedIn': completed_in,
-                    'previousTargetWord': clicked_word,
-
-                }
+                    "type": "broadcast_new_word",
+                    "targetWord": new_target_word,
+                    "leaderboard": leaderboard,
+                    "completedFrom": completed_from,
+                    "completedIn": completed_in,
+                    "previousTargetWord": clicked_word,
+                },
             )
 
         elif clicked_word != current_target_word:
             # Add clicked word to player's path
-            player.add_to_path(clicked_word)
-            player.save()
+            await self.add_word_to_player_path(username, clicked_word)
             # Get new word options for the player
-            word_options = get_word_options(clicked_word, player.get_path_list())
+            player_path = await self.get_player_path(username)
+            word_options = await self.get_word_options(clicked_word, player_path)
 
-            self.send(text_data=json.dumps({
-                'wordOptions': word_options
-            }))
+            await self.send(text_data=json.dumps({"wordOptions": word_options}))
 
-    def disconnect(self, close_code):
+    async def disconnect(self, close_code):
         # Get player's username
-        username = self.scope['user'].get_username()
+        username = self.scope["user"].get_username()
         # Remove user from group
-        group_name = 'online'
-        async_to_sync(self.channel_layer.group_discard)(
-            group_name,
-            self.channel_name
-        )
+        group_name = "online"
+        await self.channel_layer.group_discard(group_name, self.channel_name)
 
         # Set player's logged in status in DB
-        player = Player.objects.get(name=username)
-        player.is_logged_in = False
-        player.save()
+        player = await self.log_player_out(username)
 
         # Get number of online users
-        active_users = len(Player.objects.filter(is_logged_in=True))
+        active_users = await self.get_active_users()
 
         # Send message to the relevant group
-        async_to_sync(self.channel_layer.group_send)(
-            group_name,
-            {
-                'type': 'broadcast_active_users',
-                'activeUsers': active_users
-            }
+        await self.channel_layer.group_send(
+            group_name, {"type": "broadcast_active_users", "activeUsers": active_users}
         )

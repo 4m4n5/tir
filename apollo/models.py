@@ -5,9 +5,11 @@ import json
 
 
 class LoggedInUser(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL,
-                                related_name='logged_in_user',
-                                on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        related_name="logged_in_user",
+        on_delete=models.CASCADE,
+    )
 
 
 class Player(models.Model):
@@ -19,22 +21,25 @@ class Player(models.Model):
     def add_to_path(self, word):
         try:
             path = json.loads(self.path)
-            path['word_list'] = list(path['word_list'])
-            path['word_list'].append(word)
+            path["word_list"] = list(path["word_list"])
+            path["word_list"].append(word)
             self.path = json.dumps(path)
         except:
-            path = {"word_list": ['word1']}
+            path = {"word_list": ["word1"]}
             self.path = json.dumps(path)
 
     def get_path_list(self):
         path = json.loads(self.path)
 
-        return list(path['word_list'])
+        return list(path["word_list"])
 
     def reset_path_list(self):
         path = json.loads(self.path)
-        path['word_list'] = []
+        path["word_list"] = []
         self.path = json.dumps(path)
+
+    def add_points(self, num_points):
+        self.points = self.points + int(num_points)
 
     def __str__(self):
         return self.name
@@ -50,7 +55,7 @@ class TargetWord(models.Model):
     def get_path_list(self):
         path = json.loads(self.path)
 
-        return list(path['word_list'])
+        return list(path["word_list"])
 
     def __str__(self):
         return self.word
