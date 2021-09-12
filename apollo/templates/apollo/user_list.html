@@ -1,82 +1,161 @@
 {% extends 'apollo/_base.html' %}
 
 {% block content %}
-  <a href="{% url 'apollo:log_out' %}">Log out</a>
-  <br><br>
-  <div id="targetWord"> If you see this text, on connect consumer is not working. </div>
-  <div id="activeUsers"></div>
-	<div id="wordOptions"></div>
-	<div id="previousTargetWord"></div>
-	<div id="completedIn"></div>
-	<div id="completedFrom"></div>
-	<br>
-	<table id="leaderboard"></table>
+
+<!-- HEADER | Logout button-->
+<header class="block">
+
+    <div class="profile-menu">
+        <a class="header-menu-tab" href="{% url 'apollo:log_out' %}">
+            <span class="icon fontawesome-user scnd-font-color"></span>
+            Log out
+        </a>
+    </div>
+</header>
+
+<!-- LEFT-CONTAINER -->
+<div class="left-container container">
+    <div class="weather block clear">
+        <h2 class="titular">Previous Word</h2>
+        <h1 id="previousTargetWord" class="user-name"></h1>
+        <br><br>
+        <ul class="next-days">
+            <li>
+                <p class="next-days-date"><span class="day">Completed From:</span></p>
+                <p class="next-days-temperature" id="completedFrom"></p>
+            </li>
+            <br>
+            <li>
+                <p class="next-days-date"><span class="day">Completed In:</span></p>
+                <p class="next-days-temperature" id="completedIn"></p>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- MIDDLE-CONTAINER -->
+<div class="middle-container container">
+    <div class="block weather">
+        <!-- DONUT CHART BLOCK (LEFT-CONTAINER) -->
+        <h2 class="titular">CURRENT TARGET WORD</h2>
+        <h1 id="targetWord" class="user-name"></h1>
+    </div>
+
+    <div class="account block">
+        <!-- ACCOUNT (RIGHT-CONTAINER) -->
+        <h2 class="titular">OPTIONS</h2>
+        <a class="sign-in button" id="option1" , onclick="wordClick(this.value)">option 1</a>
+        <a class="sign-in button" id="option2" , onclick="wordClick(this.value)">option 2</a>
+        <a class="sign-in button" id="option3" , onclick="wordClick(this.value)">option 3</a>
+        <a class="sign-in button" id="option4" , onclick="wordClick(this.value)">option 4</a>
+    </div>
+</div>
+
+<!-- RIGHT-CONTAINER | LEADERBOARD -->
+<div class="right-container container">
+    <div class="calendar-day block">
+        <!-- CALENDAR DAY (RIGHT-CONTAINER) -->
+        <div class="arrow-btn-container">
+            <h2 class="titular">Online Players</h2>
+        </div>
+        <p id="activeUsers" class="the-day">26</p>
+    </div>
+
+    <div class="leaderboard block clear">
+        <h2 class="titular">Leaderboard</h2>
+        <br>
+        <ul id="leaderboard" class="next-days">
+        </ul>
+    </div>
+</div>
+
+<!-- <div id="targetWord"> If you see this text, on connect consumer is not working. </div> -->
+<!-- <div id="activeUsers"></div> -->
+
+<!-- <div id="previousTargetWord"></div> -->
+<!-- <div id="completedIn"></div>
+<div id="completedFrom"></div> -->
+<br>
+<!-- <table id="leaderboard"></table> -->
 {% endblock content %}
 
 
 {% block script %}
-  <script>
+<script>
     var socket = new WebSocket('ws://' + window.location.host + '/ws/tir/');
 
     socket.onopen = function open(evt) {
-      console.log('WebSockets connection created.');
+        console.log('WebSockets connection created.');
     };
 
     socket.onmessage = function message(event) {
-      var data = JSON.parse(event.data);
+        var data = JSON.parse(event.data);
 
-      // Update target word
-      if (data['targetWord']) {
-      	$('#targetWord')[0].innerHTML = String(data['targetWord']);
-      }
+        // Update target word
+        if (data['targetWord']) {
+            $('#targetWord')[0].innerHTML = String(data['targetWord']);
+        }
 
-      if (data['completedFrom']) {
-      	$('#completedFrom')[0].innerHTML = String(data['completedFrom']);
-      }
+        if (data['completedFrom']) {
+            $('#completedFrom')[0].innerHTML = String(data['completedFrom']);
+        }
 
-      if (data['completedIn']) {
-      	$('#completedIn')[0].innerHTML = String(data['completedIn']);
-      }
+        if (data['completedIn']) {
+            $('#completedIn')[0].innerHTML = String(data['completedIn']);
+        }
 
-      if (data['previousTargetWord']) {
-      	$('#previousTargetWord')[0].innerHTML = String(data['previousTargetWord']);
-      }
+        if (data['previousTargetWord']) {
+            $('#previousTargetWord')[0].innerHTML = String(data['previousTargetWord']);
+        }
 
-      // Update active users
-      if (data['activeUsers']) {
-      	$('#activeUsers')[0].innerHTML = String(data['activeUsers']);
-      }
+        // Update active users
+        if (data['activeUsers']) {
+            $('#activeUsers')[0].innerHTML = String(data['activeUsers']);
+        }
 
-      // Update word options
-      if (data['wordOptions']) {
-      	$('#wordOptions')[0].innerHTML = '';
-      	for (var i = data['wordOptions'].length - 1; i >= 0; i--) {
-      		$('#wordOptions').append(
-      		'<button type="button" class="optionButton" onclick="wordClick(value)" value=' + String(data['wordOptions'][i]) + '>' + String(data['wordOptions'][i]) + '</button>'
-      		);
-      	}
-      }
+        // Update words
+        if (data['wordOptions']) {
+            $('#option1')[0].innerHTML = String(data['wordOptions'][0]);
+            $('#option2')[0].innerHTML = String(data['wordOptions'][1]);
+            $('#option3')[0].innerHTML = String(data['wordOptions'][2]);
+            $('#option4')[0].innerHTML = String(data['wordOptions'][3]);
 
-      // Update leaderboard
-      if (data['leaderboard']) {
-      	$('#leaderboard')[0].innerHTML = '';
-      	for (var i = data['leaderboard'].length - 1; i >= 0; i--) {
-      		$('#leaderboard').append(
-      		'<tr><td>'+ data['leaderboard'][i]['name'] +'</td><td>'+ data['leaderboard'][i]['points'] + '</td></tr>'
-      		);
-      	}
-      }
+            $('#option1').val(String(data['wordOptions'][0]));
+            $('#option2').val(String(data['wordOptions'][1]));
+            $('#option3').val(String(data['wordOptions'][2]));
+            $('#option4').val(String(data['wordOptions'][3]));
+        }
+
+        // // Update word options
+        // if (data['wordOptions']) {
+        //     $('#wordOptions')[0].innerHTML = '';
+        //     for (var i = data['wordOptions'].length - 1; i >= 0; i--) {
+        //         $('#wordOptions').append(
+        //             '<a class="button" onclick="wordClick(value)" value=' + String(data['wordOptions'][i]) + '>' + String(data['wordOptions'][i]) + '</a>'
+        //         );
+        //     }
+        // }
+
+        // Update leaderboard
+        if (data['leaderboard']) {
+            $('#leaderboard')[0].innerHTML = '';
+            for (var i = 0; i < data['leaderboard'].length; i++) {
+                $('#leaderboard').append(
+                    "<li><p class='next-days-date'><span class='day'>" + data['leaderboard'][i]['name'] + "</span></p><p class='next-days-temperature' >" + data['leaderboard'][i]['points'] + "</p></li>"
+                );
+            }
+        }
     };
 
     function wordClick(value) {
-    	var message = {
-    		'word': value,
-    	}
-    	socket.send(JSON.stringify(message));
+        var message = {
+            'word': value,
+        }
+        socket.send(JSON.stringify(message));
     }
 
     if (socket.readyState == WebSocket.OPEN) {
-      socket.onopen();
+        socket.onopen();
     }
-  </script>
+</script>
 {% endblock script %}

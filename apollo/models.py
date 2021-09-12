@@ -16,7 +16,9 @@ class Player(models.Model):
     name = models.CharField(max_length=50)
     points = models.IntegerField(default=0)
     is_logged_in = models.BooleanField(default=False)
-    path = models.CharField(max_length=1000, default="{'word_list': ['word1']}")
+    path = models.CharField(
+        max_length=1000, default=json.dumps({"word_list": ["word1"]})
+    )
 
     def add_to_path(self, word):
         try:
