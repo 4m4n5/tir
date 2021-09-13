@@ -45,7 +45,7 @@ class Consumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def reset_player_path(self, username):
         player = Player.objects.get(name=username)
-        return player.reset_path_list()
+        player.reset_path_list()
 
     @database_sync_to_async
     def get_active_users(self):
