@@ -43,6 +43,11 @@ class Consumer(AsyncWebsocketConsumer):
         return player.get_path_list()
 
     @database_sync_to_async
+    def reset_player_path(self, username):
+        player = Player.objects.get(name=username)
+        return player.reset_path_list()
+
+    @database_sync_to_async
     def get_active_users(self):
         users = Player.objects.filter(is_logged_in=True)
         return users, len(users)
@@ -119,6 +124,8 @@ class Consumer(AsyncWebsocketConsumer):
         username = self.scope["user"].get_username()
         # Set player's logged in status in DB
         await self.log_player_in(username)
+        # Reset player's path
+        await self.reset_player_path(username)
         # Add user to a group
         # Currently everyone is added to the same group
         group_name = "online"
