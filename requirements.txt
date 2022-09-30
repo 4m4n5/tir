@@ -18,7 +18,7 @@ hiredis==2.0.0
 hyperlink==21.0.0
 idna==3.2
 incremental==21.3.0
-joblib==1.0.1
+joblib==1.2.0
 msgpack==1.0.2
 nltk==3.6.2
 numpy==1.20.3
