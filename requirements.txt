@@ -35,6 +35,6 @@ six==1.16.0
 smart-open==5.1.0
 sqlparse==0.4.2
 tqdm==4.61.1
-Twisted==21.2.0
+Twisted==22.10.0
 txaio==21.2.1
 zope.interface==5.4.0
