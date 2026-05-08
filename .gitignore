@@ -1,0 +1,22 @@
+node_modules/
+.env
+.env.*
+*.log
+.DS_Store
+*.local
+
+# Functions build output
+functions/lib/
+
+# Expo / RN
+TirApp/.expo/
+TirApp/ios/build/
+TirApp/ios/Pods/
+TirApp/android/.gradle/
+TirApp/android/app/build/
+TirApp/android/build/
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+.firebase/

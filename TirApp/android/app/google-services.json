@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "855285074576",
+    "project_id": "tirapp-c596f",
+    "storage_bucket": "tirapp-c596f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:855285074576:android:dd8adb0d71a65c6547e615",
+        "android_client_info": {
+          "package_name": "com.tirapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0S2Is50EaqGK20vByJZXjxxjicAExGu8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

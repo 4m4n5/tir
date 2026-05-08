@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "TirApp",
+    "slug": "tirapp",
+    "scheme": "tirapp",
+    "ios": {
+      "bundleIdentifier": "com.tirapp",
+      "googleServicesFile": "./ios/GoogleService-Info.plist"
+    },
+    "android": {
+      "package": "com.tirapp",
+      "googleServicesFile": "./android/app/google-services.json"
+    },
+    "plugins": ["expo-dev-client", "@react-native-firebase/app"]
+  }
+}

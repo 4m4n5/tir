@@ -1,0 +1,97 @@
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+# Expo autolinking for Expo modules (required for dev-client route).
+require File.join(
+  File.dirname(
+    Pod::Executable.execute_command('node', ['-p',
+      'require.resolve("expo/package.json", { paths: [process.argv[1]] })',
+      __dir__,
+    ]).strip
+  ),
+  'scripts/autolinking'
+)
+
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+
+# Firebase iOS includes Swift pods; the supported CocoaPods setup is typically static frameworks.
+# You can override with `USE_FRAMEWORKS=dynamic` if you really need dynamic frameworks.
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+else
+  use_frameworks! :linkage => :static
+end
+
+target 'TirApp' do
+  use_expo_modules!
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
+    )
+
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      end
+    end
+
+    # fmt v11 enables `consteval` when the compiler advertises `__cpp_consteval`, but some Apple clang
+    # versions still miscompile fmt's compile-time format strings. Force-disable consteval for fmt.
+    fmt_target = installer.pods_project.targets.find { |t| t.name == 'fmt' }
+    if fmt_target
+      fmt_target.build_configurations.each do |build_config|
+        existing = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS']
+        case existing
+        when Array
+          unless existing.any? { |d| d.to_s.include?('FMT_USE_CONSTEVAL=') }
+            build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = existing + ['FMT_USE_CONSTEVAL=0']
+          end
+        when String
+          unless existing.include?('FMT_USE_CONSTEVAL=')
+            build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = "#{existing} FMT_USE_CONSTEVAL=0"
+          end
+        else
+          build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) FMT_USE_CONSTEVAL=0'
+        end
+
+        # fmt v11 + Apple clang can choke on C++20 `consteval` paths; compiling fmt as C++17 avoids that.
+        build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+      end
+    end
+
+    fmt_support_dir = File.join(installer.sandbox.root, 'Target Support Files', 'fmt')
+    Dir.glob(File.join(fmt_support_dir, 'fmt.*.xcconfig')).each do |xcconfig_path|
+      contents = File.read(xcconfig_path)
+      updated = contents.gsub(/\s+-fno-consteval\b/, ' ')
+      updated.gsub!(/^CLANG_CXX_LANGUAGE_STANDARD\s*=\s*.*$/, 'CLANG_CXX_LANGUAGE_STANDARD = c++17')
+      unless updated.include?('FMT_USE_CONSTEVAL=0')
+        if updated.include?('OTHER_CPLUSPLUSFLAGS')
+          updated = updated.gsub(/^OTHER_CPLUSPLUSFLAGS\s*=\s*(.*)$/) do
+            "OTHER_CPLUSPLUSFLAGS = #{$1} -DFMT_USE_CONSTEVAL=0"
+          end
+        else
+          updated += "\nOTHER_CPLUSPLUSFLAGS = $(inherited) -DFMT_USE_CONSTEVAL=0\n"
+        end
+      end
+      File.write(xcconfig_path, updated) if updated != contents
+    end
+  end
+end
