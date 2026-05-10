@@ -16,6 +16,8 @@ the ASO field budgets. Re-read before any release.
 - **App**: tir — a fast-paced word race
 - **Studio**: aaam.dev
 - **Bundle ID**: `com.tirapp`
+- **App Store Connect App ID**: `6768131124`
+- **Apple Team ID**: `D92AD98B9B` (shared with hum)
 - **Category (primary)**: Games → Word
 - **Category (secondary)**: Games → Puzzle
 - **Age rating**: 4+ (no objectionable content; chat is server-mediated word picks only)
