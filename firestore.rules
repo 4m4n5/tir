@@ -32,6 +32,19 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if signedIn() && request.auth.uid == userId;
+      // Client may write only identity + onboarding-complete markers.
+      // Everything else (rating, streaks, counters) is server-managed
+      // by Cloud Functions via the admin SDK, which bypasses rules.
+      allow update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['displayName', 'avatarEmoji', 'updatedAt', 'tutorialCompletedAt']);
+      allow create: if signedIn() && request.auth.uid == userId
+        && request.resource.data.keys()
+            .hasOnly(['displayName', 'avatarEmoji', 'updatedAt', 'tutorialCompletedAt']);
+    }
+
+    match /publicProfiles/{userId} {
+      allow read: if signedIn();
       allow write: if false;
     }
 

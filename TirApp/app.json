@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "TirApp",
-    "slug": "tirapp",
+    "name": "tir",
+    "slug": "tir",
     "scheme": "tirapp",
     "ios": {
       "bundleIdentifier": "com.tirapp",
@@ -11,6 +11,13 @@
       "package": "com.tirapp",
       "googleServicesFile": "./android/app/google-services.json"
     },
-    "plugins": ["expo-dev-client", "@react-native-firebase/app"]
+    "plugins": [
+      "expo-dev-client",
+      "@react-native-firebase/app",
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

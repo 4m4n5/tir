@@ -2,10 +2,14 @@
 
 This captures the concrete v1 rules implied by `QUESTIONS.md`.
 
+> **Core principle:** tir is a **semantic matching game**. All word
+> connections are based on **meaning similarity** (via GloVe word
+> embeddings), never spelling or letter patterns.
+
 ## Visibility
 
 - Target word: **visible**
-- Numeric distance: **hidden**
+- Semantic distance: **hidden** (players don't see numeric similarity)
 
 ## Timing
 
@@ -17,7 +21,7 @@ This captures the concrete v1 rules implied by `QUESTIONS.md`.
 
 ## Moves
 
-- Each move: player selects **1 of 4** options.
+- Each move: player selects **1 of 4 semantically related** options (connected by meaning, not spelling).
 - Reroll: replaces **all 4** options (earned, not bought).
 
 ## Multiplayer topology

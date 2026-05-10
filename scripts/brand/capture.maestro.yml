@@ -1,0 +1,104 @@
+# tir App Store screenshot flow.
+#
+# Drives the iOS Simulator through every shippable surface and captures
+# a 1320x2868 screenshot at each one. Element selectors are by
+# accessibility label or visible text - no host-screen coordinates - so
+# this flow is stable across simulator window moves, hot-reloads, and
+# minor layout tweaks.
+#
+# Maestro text matching uses REGEX with FULLMATCH semantics (the regex
+# must match the entire visible text of an element, not a substring).
+# That's why titles like "pick a name." need an explicit `.` (or `.*`)
+# to match. Don't drop trailing punctuation.
+#
+# Prereq:
+#   - iPhone 17 Pro Max simulator booted
+#   - tir app installed (com.tirapp)
+#
+# Run:  ./scripts/brand/capture-via-maestro.sh
+#
+# Output:
+#   ./TirApp/assets/screenshots/01-name.png ... 06-game.png
+appId: com.tirapp
+---
+- launchApp:
+    stopApp: true
+
+# Wait for JS bundle + NavigationGate to settle before any assertion -
+# otherwise the first check fires against a blank screen.
+- extendedWaitUntil:
+    visible: ".*(name|play).*"
+    timeout: 12000
+
+# Stage 1: clear any prior anon user. If we landed on /home, hit `reset
+# progress` and confirm in the system alert. If we landed on /name, the
+# block is skipped.
+#
+# Note: Maestro uses regex fullmatch, so we need `.*` suffixes to match
+# elements whose accessibility label is verbose ("reset progress,
+# permanently deletes your account and all data"). Same for the system
+# alert's confirm button label.
+- runFlow:
+    when:
+      visible: "reset progress.*"
+    commands:
+      - tapOn: "reset progress.*"
+      - tapOn: "reset"
+      - extendedWaitUntil:
+          visible: "pick a name\\."
+          timeout: 10000
+
+# We should now be on /name. Capture.
+- assertVisible: "pick a name\\."
+- takeScreenshot: TirApp/assets/screenshots/01-name
+
+# Stage 2: type a clean display name and tap start. Maestro `id:`
+# matches React Native's `testID` prop; our buttons use
+# `accessibilityLabel` which Maestro exposes as text, so we tap by
+# label-as-text instead.
+- tapOn: "enter your display name"
+- eraseText
+- inputText: "wolf"
+# Dismiss the keyboard by tapping the title - hideKeyboard fails on the
+# new-architecture iOS keyboard because TextInput doesn't expose a
+# dismiss action. Tapping a non-interactive header is the fallback
+# Maestro itself recommends.
+- tapOn: "pick a name\\."
+- tapOn: "start tutorial"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Stage 3: tutorial cards 1-3.
+- assertVisible: "reach the target\\."
+- takeScreenshot: TirApp/assets/screenshots/02-tutorial-win
+- tapOn: "next"
+- waitForAnimationToEnd
+
+- assertVisible: "pick toward the target\\."
+- takeScreenshot: TirApp/assets/screenshots/03-tutorial-move
+- tapOn: "next"
+- waitForAnimationToEnd
+
+- assertVisible: "race together\\."
+- takeScreenshot: TirApp/assets/screenshots/04-tutorial-sync
+- tapOn: "lets race"
+- waitForAnimationToEnd:
+    timeout: 4000
+
+# Stage 4: home screen. The PLAY CTA has a long accessibility label
+# ("play live global match...") - we wait for any element starting with
+# "play" so this works whether the button shows "play", "connecting",
+# or "signing in".
+- extendedWaitUntil:
+    visible: "play.*"
+    timeout: 8000
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: TirApp/assets/screenshots/05-home
+
+# Stage 5: enter the global game. tapOn matches by regex fullmatch, so
+# we use a leading-anchor regex that still covers "play live global...".
+- tapOn: "play live global.*"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: TirApp/assets/screenshots/06-game

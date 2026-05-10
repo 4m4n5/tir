@@ -20,3 +20,11 @@ TirApp/android/build/
 firebase-debug.log
 firebase-debug.*.log
 .firebase/
+service-account.json
+
+# Pipeline output
+pipeline/out/
+
+# GloVe embeddings (large binary, re-download with pipeline if needed)
+pipeline/glove*.txt
+pipeline/glove*.zip

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  tir app icon - master 1024x1024.
+
+  Concept: "captured target."
+    - Outer ring  = the TARGET (where you are racing to)
+    - Inner dot   = the PLAYER who reached the target
+    - Asymmetric placement at ~1-2 o'clock, inside the ring -> tells the
+      game's win-state in a single composition.
+
+  Design constraints (verified against Apple HIG App Icons, 2026):
+    - Single, clear focal point.
+    - Fully opaque RGB. No transparency. No shadows / glows in source.
+    - 15.4% safe inset from canvas edge to nearest visual content (the
+      ring outer edge sits at 158px from edge / 1024 = 15.4%; Apple
+      applies a ~20% squircle mask on top of this so the ring sits
+      comfortably within the masked area).
+    - Reads at every size (60pt up). Two simple geometric primitives,
+      both fully filled or fully stroked - no fine detail to lose at
+      small sizes.
+
+  Palette (from the hybrid family-shift, 2026-05-10):
+    - bg     #0B0B12  warm-near-black canvas (matches app bg token)
+    - accent #00E5FF  electric cyan (tir's signature accent, unchanged)
+
+  Source of truth. Icon Composer / iOS asset catalogs render from this.
+-->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#0B0B12"/>
+  <circle cx="512" cy="512" r="340" stroke="#00E5FF" stroke-width="24" fill="none"/>
+  <circle cx="592" cy="374" r="96" fill="#00E5FF"/>
+</svg>

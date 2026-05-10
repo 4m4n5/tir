@@ -1,101 +1,88 @@
-# Word engine (v1)
+# Word engine (semantic similarity)
 
-This doc defines:
-
-- What a “word” is in `tir`
-- How we generate the **4 options** each move
-- How we add **variety** while staying “closest”
-- The minimal interfaces the rest of the system depends on
+> **Core principle:** tir is a **semantic matching game**. Words are connected
+> by **meaning**, not by spelling or letter patterns. "cat" → "dog", "kitten",
+> "mouse" — never "car" or "cap". "piano" → "violin", "guitar", "melody" —
+> never "piano" → "pint" or "pine".
 
 ## Definitions
 
-- **Word**: a single English token (ASCII letters), lowercased for internal IDs, displayed with original casing if desired.
-- **Disallowed**: profanity; plural/tenses variants (v1); multi-word phrases (v1).
-- **Proper nouns**: allowed (v1), but filtered via a configurable policy (see below).
-- **Distance**: semantic similarity via embeddings (v1 target), but the game loop must work with a stub provider first.
+- **Word**: a single English token (ASCII letters), lowercased internally.
+- **Similarity**: semantic (meaning-based) similarity via word embeddings.
+  NOT edit distance, NOT letter overlap, NOT spelling patterns.
+- **Disallowed**: profanity; plural/tenses variants (v1); multi-word phrases.
+- **Proper nouns**: configurable via policy.
 
-## Primary contract
+## Embedding model: GloVe
 
-Given:
+We use **GloVe** (Global Vectors for Word Representation) — specifically
+`glove.6B.300d` — trained on Wikipedia + Gigaword corpus (6B tokens).
 
-- `currentWord`
-- `targetWord` (always visible to player)
-- optional `playerId`, `roomId` (for future personalization)
+**Why GloVe over sentence transformers (e.g., all-MiniLM-L6-v2)?**
 
-Return:
+- Sentence transformers use subword tokenization (WordPiece/BPE), which causes
+  words with similar character sequences to have similar embeddings even when
+  semantically unrelated ("cat"/"car"/"cap" share the "ca" subword token).
+- GloVe is trained on **word co-occurrence**: words that appear in similar
+  contexts get similar vectors. This captures genuine semantic relationships
+  without any character-level noise.
 
-- `options[4]` (distinct words, none equal to `currentWord`)
-- plus a `generationMeta` payload (for debugging/telemetry only; not shown to players)
+## Vocabulary
 
-## Option generation rule (“3 nearest + 1 diversifier”)
+~900 curated, common English words — **lexically simple** (words people know)
+but **semantically rich** (diverse meaning domains: nature, animals, food,
+emotions, places, actions, science, etc.).
 
-We want “4 closest” but also avoid trapping players in one narrow semantic domain.
+No NLTK padding or obscure dictionary words. Every word in the vocab should be
+recognizable to a typical English speaker.
 
-### Step 1 — Candidate pool
+Edit `SEED_WORDS` in `pipeline/build_neighbors.py` to expand the vocabulary.
 
-- Compute nearest neighbors to `currentWord` using embedding cosine similarity.
-- Take the top K candidates after filtering (policy filters below).
-  - v1 default: `K = 50` (tunable).
+## Lexical overlap filter
 
-### Step 2 — Choose the first 3 (pure nearest)
+Even with GloVe, occasional character-similar words can appear as neighbors.
+The pipeline applies a **lexical overlap filter** (threshold 60%) that measures
+shared prefix/suffix ratio and substring containment. Any neighbor exceeding
+the threshold is stripped and replaced with the next-best semantic neighbor.
 
-- Sort candidate pool by similarity to `currentWord` descending.
-- Pick the top 3 distinct words.
+## Option generation (server-side)
 
-### Step 3 — Choose the 4th (diversifier via MMR)
+Given `(currentWord, targetWord, excludeWords)`, produce 4 distinct options:
 
-Pick one additional word from the remaining pool that’s still close **but** not redundant with the top 3.
+1. **Candidate pool**: read top-50 precomputed neighbors from Firestore.
+2. **Selection mix**: 1 closest + 1 medium-range + 1 path-toward-target + 1 MMR diversifier.
+3. **MMR diversifier** (alpha ~0.6): maximizes cosine relevance while minimizing
+   redundancy with already-selected options.
+4. **Minimum-moves guard**: target word is excluded from options until ≥ 2 moves
+   have been made in the round.
+5. **Shuffle**: options are shuffled before returning to the client.
 
-Use Maximal Marginal Relevance (MMR):
+Falls back to `stub.ts` (28-word hand-curated graph) if the word is missing
+from precomputed data.
 
-score(c) = \alpha \cdot sim(current,c) - (1-\alpha)\cdot \max_{s \in selected} sim(c,s)
+## Data model
 
-- `selected` is the set of the 3 chosen nearest options.
-- sim(\cdot,\cdot) is cosine similarity between embeddings.
-- v1 default: \alpha = 0.85 (tunable).
+```
+precomputed/neighbors/words/{word}
+  neighbors: string[]   # top-50 semantic neighbors (by meaning)
+  scores: number[]      # cosine similarity scores (0–1)
+```
 
-Then pick `argmax(score(c))`.
+## Pipeline
 
-### Notes
+```bash
+cd pipeline
+python3 build_neighbors.py --upload
+```
 
-- This preserves “closest” because the diversifier is still chosen from a top-K nearest pool.
-- We can optionally bias the pool toward words that *also* reduce distance to target, but v1 will keep it simple to avoid being “solvable”.
+Source: `pipeline/build_neighbors.py`  
+Model: GloVe 300d (downloaded from Stanford NLP)  
+Output: JSON + Firestore upload to `precomputed/neighbors/words/`
 
-## Filters / policies (v1)
+## Server entry point
 
-- **Profanity**: hard blocklist.
-- **Morphology**: basic lemmatization gate (or a curated allowed-list) to avoid plural/tenses.
-- **Proper nouns**: configurable `properNounsPolicy`:
-  - `allow_some`: allow but cap the fraction in the top-K pool
-  - `allow_all`
-  - `block_all`
+`functions/src/embeddingNeighbor.ts` → `embeddingNextMove()`
 
-## Stub provider (Phase 1)
-
-Before embeddings exist, we will ship a stub provider that:
-
-- uses a small curated vocabulary
-- uses a precomputed neighbor map (JSON)
-- returns 4 options using the same selection interface
-
-This unblocks:
-
-- realtime rooms, finish window, target rotation
-- UI/UX iteration
-- reward plumbing
-
-## Embeddings provider (Phase 2 / v1)
-
-Firebase-friendly approach:
-
-- Implement a pluggable `EmbeddingProvider` interface.
-- Start with **server-side on-demand** embedding + neighbor lookup + caching.
-- Cache:
-  - `embedding(word)` in Firestore/Redis-like store (later) or in-memory (short TTL) plus Firestore persistent cache
-  - `neighbors(word)` (top-K list) in Firestore to avoid recomputation
-
-Provider options (we’ll implement as interchangeable backends):
-
-- `OpenAI` (if you provide an API key)
-- `Vertex AI` (if we enable GCP project + service account)
-- Local model (Cloud Run container) if cost/latency requires
+Reads precomputed neighbors, applies MMR selection, returns 4 options.
+`generationMeta.provider` is `'precomputed'` for GloVe-backed moves,
+`'stub'` for fallback.

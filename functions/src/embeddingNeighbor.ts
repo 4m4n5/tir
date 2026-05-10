@@ -1,118 +1,81 @@
+/**
+ * Semantic word engine — the core of tir's gameplay.
+ *
+ * tir is a SEMANTIC MATCHING game: words are connected by MEANING,
+ * not by spelling or letter patterns. "cat" → "dog", "kitten", "mouse" —
+ * never "car" or "cap".
+ *
+ * Neighbors are precomputed offline using GloVe (Global Vectors for Word
+ * Representation), which encodes word co-occurrence patterns from a large
+ * text corpus. This produces genuine semantic similarity: words that appear
+ * in similar contexts are neighbors, regardless of how they're spelled.
+ *
+ * A lexical overlap filter is applied during precomputation to actively
+ * strip any neighbors that share character patterns (prefix/suffix > 60%).
+ *
+ * Data lives in Firestore at `precomputed/neighbors/words/{word}`, each
+ * doc containing `neighbors: string[]` (top-50) and `scores: number[]`
+ * (cosine similarity, 0–1).
+ *
+ * Pipeline: `pipeline/build_neighbors.py` (GloVe 300d → cosine → filter → upload).
+ * Falls back to stub.ts for words missing from the precomputed graph.
+ *
+ * Difficulty is controlled via DifficultyConfig — see difficulty.ts for
+ * the 4 presets (chill / normal / hard / expert) and the 5 tuning levers.
+ */
 import * as admin from 'firebase-admin';
-import {filterVocab} from './contentPolicy';
-import {neighborsFor, stubNextMove, VOCAB} from './stub';
+import {DIFFICULTY_CONFIGS, DEFAULT_DIFFICULTY} from './difficulty';
+import type {Difficulty, DifficultyConfig} from './difficulty';
+import {stubNextMove} from './stub';
+import type {WordEngineMove} from './stub';
 
-const CACHE = 'cache';
-const EMB = 'wordEmbeddings';
+const PRECOMP_COLL = 'precomputed/neighbors/words';
 
-function cosine(a: number[], b: number[]): number {
-  let dot = 0;
-  let na = 0;
-  let nb = 0;
-  for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  const d = Math.sqrt(na) * Math.sqrt(nb);
-  return d === 0 ? 0 : dot / d;
-}
+const SEED_WORDS = [
+  'morning', 'stone', 'forest', 'garden', 'bridge', 'crystal',
+  'river', 'cloud', 'lantern', 'tower', 'meadow', 'harbor',
+];
 
-async function fetchOpenAiEmbedding(word: string): Promise<number[]> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    throw new Error('no_openai_key');
-  }
-  const res = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-3-small',
-      input: word,
-    }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`openai_embed_failed:${res.status}:${t.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as {
-    data?: Array<{embedding: number[]}>;
+type PrecomputedData = {neighbors: string[]; scores: number[]};
+
+async function getPrecomputedNeighbors(
+  db: admin.firestore.Firestore,
+  word: string,
+): Promise<PrecomputedData | null> {
+  const doc = await db.collection(PRECOMP_COLL).doc(word.toLowerCase()).get();
+  if (!doc.exists) return null;
+  const data = doc.data()!;
+  return {
+    neighbors: (data.neighbors as string[]) ?? [],
+    scores: (data.scores as number[]) ?? [],
   };
-  const vec = json.data?.[0]?.embedding;
-  if (!vec?.length) {
-    throw new Error('openai_embed_empty');
-  }
-  return vec;
 }
 
-async function getCachedEmbedding(
-  db: admin.firestore.Firestore,
-  word: string,
-): Promise<number[] | null> {
-  const doc = await db
-    .collection(CACHE)
-    .doc(EMB)
-    .collection('words')
-    .doc(word.toLowerCase())
-    .get();
-  const v = doc.data()?.vector as number[] | undefined;
-  return v?.length ? v : null;
+export function randomSeedWord(): string {
+  return SEED_WORDS[Math.floor(Math.random() * SEED_WORDS.length)];
 }
 
-async function putCachedEmbedding(
-  db: admin.firestore.Firestore,
-  word: string,
-  vector: number[],
-): Promise<void> {
-  await db
-    .collection(CACHE)
-    .doc(EMB)
-    .collection('words')
-    .doc(word.toLowerCase())
-    .set(
-      {
-        vector,
-        model: 'text-embedding-3-small',
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      {merge: true},
-    );
-}
-
-async function getEmbedding(db: admin.firestore.Firestore, word: string): Promise<number[]> {
-  const cached = await getCachedEmbedding(db, word);
-  if (cached) return cached;
-  const vec = await fetchOpenAiEmbedding(word);
-  await putCachedEmbedding(db, word, vec);
-  return vec;
-}
-
-function mmrPickEmbedding(args: {
+function mmrPick(args: {
   candidates: string[];
   selected: string[];
-  simCurrent: Map<string, number>;
-  vectors: Map<string, number[]>;
+  cosineScores: Map<string, number>;
   alpha: number;
 }): string | null {
-  const {candidates, selected, simCurrent, vectors, alpha} = args;
+  const {candidates, selected, cosineScores, alpha} = args;
   if (!candidates.length) return null;
+
   let best: {c: string; score: number} | null = null;
   for (const c of candidates) {
-    const rel = simCurrent.get(c) ?? 0;
-    const ev = vectors.get(c);
-    let red = 0;
-    if (ev) {
-      for (const s of selected) {
-        const sv = vectors.get(s);
-        if (sv) {
-          red = Math.max(red, cosine(ev, sv));
-        }
-      }
+    const relevance = cosineScores.get(c) ?? 0;
+
+    let redundancy = 0;
+    for (const s of selected) {
+      const sc = cosineScores.get(s) ?? 0;
+      const cc = cosineScores.get(c) ?? 0;
+      redundancy = Math.max(redundancy, 1 - Math.abs(cc - sc));
     }
-    const score = alpha * rel - (1 - alpha) * red;
+
+    const score = alpha * relevance - (1 - alpha) * redundancy;
     if (!best || score > best.score) {
       best = {c, score};
     }
@@ -120,20 +83,42 @@ function mmrPickEmbedding(args: {
   return best?.c ?? null;
 }
 
-/**
- * 3 nearest by embedding cosine + 1 MMR diversifier from a capped pool.
- * Falls back to stub graph when OPENAI_API_KEY is unset or on any error.
- */
+function findBestPathWord(
+  cfg: DifficultyConfig,
+  targetNeighbors: PrecomputedData,
+  currentNeighborSet: Set<string>,
+  exclude: Set<string>,
+): string | null {
+  if (!cfg.pathWordEnabled) return null;
+
+  const scanSlice = targetNeighbors.neighbors.slice(0, cfg.pathScanDepth);
+  for (const w of scanSlice) {
+    if (currentNeighborSet.has(w) && !exclude.has(w)) {
+      return w;
+    }
+  }
+
+  if (cfg.pathFallbackEnabled) {
+    const fallbackSlice = targetNeighbors.neighbors.slice(0, cfg.pathFallbackDepth);
+    for (const w of fallbackSlice) {
+      if (!exclude.has(w)) return w;
+    }
+  }
+
+  return null;
+}
+
 export async function embeddingNextMove(params: {
   db: admin.firestore.Firestore;
   currentWord: string;
   targetWord: string;
   excludeWords?: string[];
-  k?: number;
+  movesThisRound?: number;
+  difficulty?: Difficulty;
   alpha?: number;
-}): Promise<ReturnType<typeof stubNextMove>> {
-  const k = params.k ?? 50;
-  const alpha = params.alpha ?? 0.85;
+}): Promise<WordEngineMove> {
+  const alpha = params.alpha ?? 0.6;
+  const cfg = DIFFICULTY_CONFIGS[params.difficulty ?? DEFAULT_DIFFICULTY];
   const current = params.currentWord.toLowerCase();
   const target = params.targetWord.toLowerCase();
   const exclude = new Set(
@@ -141,48 +126,171 @@ export async function embeddingNextMove(params: {
   );
   exclude.add(current);
 
-  if (!process.env.OPENAI_API_KEY) {
+  const [currentNeighbors, targetNeighbors] = await Promise.all([
+    getPrecomputedNeighbors(params.db, current),
+    getPrecomputedNeighbors(params.db, target),
+  ]);
+
+  if (!currentNeighbors) {
     return stubNextMove({currentWord: current, targetWord: target, excludeWords: [...exclude]});
   }
 
-  try {
-    const pool = filterVocab(
-      [...new Set([...neighborsFor(current), ...neighborsFor(target), ...VOCAB])],
-    )
-      .filter(w => !exclude.has(w))
-      .slice(0, k);
+  const cosineScores = new Map<string, number>();
+  const currentNeighborSet = new Set<string>();
+  const pool: string[] = [];
 
-    const curVec = await getEmbedding(params.db, current);
-    const simCurrent = new Map<string, number>();
-    const vectors = new Map<string, number[]>();
-    for (const w of pool) {
-      const ev = await getEmbedding(params.db, w);
-      vectors.set(w, ev);
-      simCurrent.set(w, cosine(curVec, ev));
+  for (let i = 0; i < currentNeighbors.neighbors.length; i++) {
+    const w = currentNeighbors.neighbors[i];
+    const s = currentNeighbors.scores[i] ?? 0;
+    currentNeighborSet.add(w);
+    cosineScores.set(w, s);
+    if (!exclude.has(w)) {
+      pool.push(w);
     }
-    const sorted = [...pool].sort((a, b) => (simCurrent.get(b) ?? 0) - (simCurrent.get(a) ?? 0));
-    const first3 = sorted.slice(0, 3);
-    const remaining = sorted.slice(3);
-    const fourth = mmrPickEmbedding({
-      candidates: remaining,
-      selected: first3,
-      simCurrent,
-      vectors,
-      alpha,
-    });
-    const options = [...new Set([...first3, ...(fourth ? [fourth] : [])])].slice(0, 4);
-    while (options.length < 4) {
-      const fb = VOCAB.find(w => !options.includes(w) && !exclude.has(w));
-      if (!fb) break;
-      options.push(fb);
+  }
+
+  const targetRank = currentNeighbors.neighbors.indexOf(target);
+  if (targetRank !== -1 && !exclude.has(target) && !pool.includes(target)) {
+    pool.push(target);
+  }
+
+  // Inject target's neighbors as directional breadcrumbs (count controlled by difficulty)
+  if (targetNeighbors && cfg.breadcrumbCount > 0) {
+    const count = cfg.breadcrumbCount;
+    for (let i = 0; i < Math.min(count, targetNeighbors.neighbors.length); i++) {
+      const w = targetNeighbors.neighbors[i];
+      if (!exclude.has(w) && !pool.includes(w)) {
+        pool.push(w);
+        const targetScore = cfg.breadcrumbScoreMax - (i / count) * (cfg.breadcrumbScoreMax - 0.05);
+        if (!cosineScores.has(w)) cosineScores.set(w, targetScore);
+      }
     }
-    return {
-      currentWord: current,
-      targetWord: target,
-      options: options as [string, string, string, string],
-      generationMeta: {provider: 'stub', k, alpha},
-    };
-  } catch {
+  }
+
+  if (pool.length < 4) {
     return stubNextMove({currentWord: current, targetWord: target, excludeWords: [...exclude]});
   }
+
+  const sorted = [...pool].sort(
+    (a, b) => (cosineScores.get(b) ?? 0) - (cosineScores.get(a) ?? 0),
+  );
+
+  // Slot 1: closest — highest cosine to current word
+  const closest = sorted[0];
+
+  // Slot 2: "medium" — position controlled by difficulty
+  const medIdx = Math.min(cfg.mediumSlotIdx, sorted.length - 1);
+  const medium = sorted[medIdx] !== closest ? sorted[medIdx] : sorted[Math.min(medIdx + 1, sorted.length - 1)];
+
+  // Slot 3: path/bridge word (enabled/disabled by difficulty)
+  let pathWord: string | null = null;
+  if (targetNeighbors) {
+    pathWord = findBestPathWord(cfg, targetNeighbors, currentNeighborSet, new Set([...exclude, closest, medium]));
+  }
+
+  const selected = [closest, medium];
+  if (pathWord && pathWord !== closest && pathWord !== medium) {
+    selected.push(pathWord);
+  }
+
+  // Slot 4: diversifier via MMR (depth controlled by difficulty)
+  const selectedSet = new Set(selected);
+  const remaining = sorted.filter(w => !selectedSet.has(w));
+  const divCandidates = remaining.slice(0, Math.max(20, cfg.diversifierDepth * 2));
+  const diversifier = mmrPick({
+    candidates: divCandidates,
+    selected,
+    cosineScores,
+    alpha,
+  });
+
+  if (diversifier) selected.push(diversifier);
+
+  while (selected.length < 4 && remaining.length > 0) {
+    const next = remaining.find(w => !selected.includes(w));
+    if (!next) break;
+    selected.push(next);
+  }
+
+  if (selected.length < 4) {
+    return stubNextMove({currentWord: current, targetWord: target, excludeWords: [...exclude]});
+  }
+
+  // Progressive target injection (probability controlled by difficulty)
+  if (targetRank !== -1 && !exclude.has(target) && !selected.includes(target)) {
+    const ti = cfg.targetInject;
+    let injectProb = 0;
+    if (targetRank < 5) injectProb = ti.rank5;
+    else if (targetRank < 10) injectProb = ti.rank10;
+    else if (targetRank < 20) injectProb = ti.rank20;
+    else if (targetRank < 35) injectProb = ti.rank35;
+    else injectProb = ti.rank50;
+
+    if (Math.random() < injectProb) {
+      selected[selected.length - 1] = target;
+    }
+  }
+
+  const options = selected.slice(0, 4);
+
+  // Fisher-Yates shuffle
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [options[i], options[j]] = [options[j], options[i]];
+  }
+
+  return {
+    currentWord: current,
+    targetWord: target,
+    options: options as [string, string, string, string],
+    generationMeta: {provider: 'precomputed', k: pool.length, alpha, difficulty: params.difficulty ?? DEFAULT_DIFFICULTY},
+  };
+}
+
+/**
+ * BFS through the precomputed neighbor graph to find the shortest
+ * semantic path from startWord to targetWord. Returns the path as
+ * an array of words, or null if unreachable within maxDepth hops.
+ */
+export async function findShortestPath(
+  db: admin.firestore.Firestore,
+  startWord: string,
+  targetWord: string,
+  maxDepth: number = 6,
+): Promise<string[] | null> {
+  const start = startWord.toLowerCase();
+  const target = targetWord.toLowerCase();
+  if (start === target) return [start];
+
+  const queue: {word: string; path: string[]}[] = [{word: start, path: [start]}];
+  const visited = new Set<string>([start]);
+
+  while (queue.length > 0) {
+    const {word, path} = queue.shift()!;
+    if (path.length > maxDepth) break;
+
+    const neighbors = await getPrecomputedNeighbors(db, word);
+    if (!neighbors) continue;
+
+    for (const n of neighbors.neighbors.slice(0, 15)) {
+      if (n === target) return [...path, target];
+      if (!visited.has(n)) {
+        visited.add(n);
+        queue.push({word: n, path: [...path, n]});
+      }
+    }
+  }
+  return null;
+}
+
+export async function computeCosineDist(
+  db: admin.firestore.Firestore,
+  word: string,
+  target: string,
+): Promise<number> {
+  const data = await getPrecomputedNeighbors(db, word);
+  if (!data) return 1;
+  const idx = data.neighbors.indexOf(target.toLowerCase());
+  if (idx !== -1) return 1 - (data.scores[idx] ?? 0);
+  return 1;
 }

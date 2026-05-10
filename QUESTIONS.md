@@ -19,7 +19,7 @@ We need a precise definition of “closest word”.
   - Thesaurus/ontology graph (edges like synonym/related)
   - Custom curated graph
   - Other:
-  - > Yes, semantic similarity. We can focus on using only proper nouns or something so we have a nice variety in the options so the game keeps moving (not entirely concretely yet; let’s flesh out more).
+  - > **Yes, semantic (meaning-based) similarity.** Words are connected by what they mean, not how they're spelled. "cat" leads to "dog"/"kitten"/"mouse" — never "car"/"cap". Powered by GloVe (word co-occurrence) embeddings with a lexical overlap filter to strip character-pattern noise. Vocab is ~900 curated common English words — lexically simple, semantically rich.
 
 - **Allowed tokens**:
   - Single words only?
@@ -73,7 +73,7 @@ We need a precise definition of “closest word”.
   - Mix of good + decoy options?
   - Options personalized per player, or shared for everyone?
   - Any “anti-solve” strategy you want (to avoid optimal paths being memorized)?
-  - > Always the 4 nearest semantic neighbors, but there should be some variety/randomness to avoid boxing the player into a domain.
+  - > Always the 4 nearest **semantic** (meaning-based) neighbors, with MMR diversity to avoid boxing the player into one semantic domain. Options reflect word meaning, never spelling similarity.
   - > No decoys.
   - > We can think about some kind of personalization in one of the options to add a long-term “subtext”.
   - > Yes: some anti-bot measure to keep it fair/fun.
