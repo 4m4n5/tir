@@ -48,9 +48,9 @@ Alt: `multiplayer word association` — 28 chars (better keyword density, weaker
 
 **Use:**
 
-> the chase is meaning. a target appears, you race through chains of meaning to reach it. closest pick wins the leap. one global room, real opponents. drop in.
+> race the room to the target word. a target appears — pick toward it. closest meaning, biggest leap. first to reach wins. one global room, real opponents. drop in.
 
-(159 chars)
+(165 chars)
 
 **Why:** promo text is editable without resubmitting a build, so use it for what changes — current vibe, seasonal hooks, "just shipped" notes. NOT for SEO ([Sonar 2026 §promo](https://trysonar.app/blog/metadata-optimization-guide)).
 
@@ -59,23 +59,23 @@ Alt: `multiplayer word association` — 28 chars (better keyword density, weaker
 ## Description (4000 chars; first 3 lines visible without "More")
 
 ```text
-race through meaning to a target word.
+race the room to the target word.
 
-a target word appears. from any starting word, you pick the option whose meaning is closest. your current word jumps to that pick, four new options appear. keep picking. first mind to land on the target wins the round.
+a target word appears. you pick toward it — closest meaning is the biggest leap. your current word jumps to that pick, four new options appear. keep picking. first to reach the target wins the round.
 
 how it works
-- a target word goes live in the global room
-- you start somewhere unrelated and pick toward it
-- closer meaning = bigger leap
-- first to land on the target wins the round
+- a target word appears
+- pick toward the target — closest meaning, biggest leap
+- your word jumps; four new options appear
+- first to reach wins the round
 
-what makes it different
-- semantic, not lexical. you win on what words MEAN, not on spelling tricks.
-- a real game, not a daily puzzle. drop in for a round, climb your rating, leave.
-- one global room of real opponents. play solo at off-peak — solo wins still earn rating.
-- pure pairwise Elo, the same math chess uses. no luck, no power-ups, no IAP, no ads.
+race together
+- one global room. same word, same time. real opponents.
+- play solo at off-peak — solo wins still earn rating.
+- semantic, not lexical. you win on what words MEAN, not on spelling.
 
 ranking
+- pure pairwise Elo, the same math chess uses.
 - five-round placement period. your real rating is hidden until you have a sample.
 - after that: a number, a tier, a leaderboard.
 - losing to someone far above you barely costs you. beating someone far below barely earns you. honest math.
@@ -85,10 +85,12 @@ private rooms
 - four difficulties: chill, normal, hard, expert. (the global room is normal.)
 - private rooms don't move your global rating. practice freely, race friends fairly.
 
+no power-ups. no IAP. no ads. just race together.
+
 shipped by aaam.dev. quiet, fair, fast.
 ```
 
-(~1380 chars; well within budget; tight first-line hook that names the actual mechanic, not a fabricated timer)
+(~1340 chars; well within budget; first line is the brand hook — same phrase as the web hero — and the body is built from the in-app tutorial vocabulary verbatim: "pick toward the target", "closest meaning, biggest leap", "first to reach wins", "same word, same time", "race together")
 
 **Voice rules** (echoing tir's in-app microcopy):
 
@@ -123,8 +125,11 @@ synonym,vocabulary,semantic,meaning,association,puzzle,brain,multiplayer,Elo,com
 ```text
 the first cut of tir.
 
-- one global room, always on. drop in.
-- closest meaning to the target wins the round.
+race the room to the target word.
+
+- a target word appears. pick toward it.
+- closest meaning, biggest leap. first to reach wins.
+- one global room. same word, same time.
 - pure pairwise Elo, with a five-round placement grace.
 - private rooms with four difficulties: chill, normal, hard, expert.
 - 30-emoji avatar grid, 3-card tutorial, no signup.
@@ -209,12 +214,14 @@ Upload order matters — the first three appear in search results.
 
 Caption text per slot (one-liners, ≤ 30 chars; **screenshot caption text is now a ranking signal** as of mid-2025 per [ASO World 2026](https://asoworld.com/insight/app-store-search-algorithm-2026-what-actually-decides-your-keyword-ranking/)):
 
-1. `closest meaning, biggest leap`
-2. `one global room, always on`
-3. `first mind to the target wins`
-4. `each pick is a leap`
-5. `everyone races the same target`
-6. `pick a name, pick a vibe`
+1. `pick toward the target.`
+2. `one global room, always on.`
+3. `first to reach wins.`
+4. `closest meaning, biggest leap.`
+5. `same word, same time.`
+6. `pick a name, pick a vibe.`
+
+**Why these exact strings:** captions 3/4/5 are verbatim copies of the tutorial cards 1/2/3 captions in `welcome.tsx` (the screenshots ARE those tutorial cards, so the captions should literally match). Caption 1 reuses the Card 2 title (`pick toward the target.`) since the screenshot shows the live game's pick-toward-target moment. Caption 2 describes the home surface (the only one that isn't a tutorial card). Caption 6 is the only invented string — the onboarding screen has no tutorial vocabulary to borrow from.
 
 ---
 
