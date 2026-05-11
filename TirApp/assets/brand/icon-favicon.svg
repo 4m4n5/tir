@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  tir favicon  32px / 16px optimized variant.
+  Same composition as icon-master.svg ("captured target"  outer ring + offset dot)
+  but with proportionally thicker stroke (4px on a 32px canvas vs. 24px on 1024px,
+  i.e. 12.5% vs 2.3%) so the ring stays visible at favicon sizes. Source design's
+  hairline stroke sub-pixels out below ~80px and reads as a faint smudge.
+-->
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" fill="#0B0B12"/>
+  <circle cx="16" cy="16" r="11" stroke="#00E5FF" stroke-width="2.4" fill="none"/>
+  <circle cx="20" cy="11" r="3.2" fill="#00E5FF"/>
+</svg>
