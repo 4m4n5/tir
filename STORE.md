@@ -48,9 +48,9 @@ Alt: `multiplayer word association` — 28 chars (better keyword density, weaker
 
 **Use:**
 
-> Built for the 90 seconds you have. Open tir, get a target word, beat the room to it. Climb the global ladder. New round every 90 seconds, around the clock.
+> the chase is meaning. a target appears, you race through chains of meaning to reach it. closest pick wins the leap. one global room, real opponents. drop in.
 
-(168 chars)
+(159 chars)
 
 **Why:** promo text is editable without resubmitting a build, so use it for what changes — current vibe, seasonal hooks, "just shipped" notes. NOT for SEO ([Sonar 2026 §promo](https://trysonar.app/blog/metadata-optimization-guide)).
 
@@ -59,37 +59,36 @@ Alt: `multiplayer word association` — 28 chars (better keyword density, weaker
 ## Description (4000 chars; first 3 lines visible without "More")
 
 ```text
-race the room to the target word.
+race through meaning to a target word.
 
-every 90 seconds, a new word goes live in the global room.
-your job is to get there first by picking the closest meaning.
+a target word appears. from any starting word, you pick the option whose meaning is closest. your current word jumps to that pick, four new options appear. keep picking. first mind to land on the target wins the round.
 
 how it works
-- a target word appears
-- pick from four options - the one whose meaning is closest to the target
-- closer pick = bigger leap
-- first player to actually land on the target word wins the round
+- a target word goes live in the global room
+- you start somewhere unrelated and pick toward it
+- closer meaning = bigger leap
+- first to land on the target wins the round
 
 what makes it different
-- semantic matching, not letter matching. you win on what words MEAN, not on spelling tricks.
-- always live. one global room, always running, real opponents.
-- 90-second rounds. drop in for one round between things, or stay for thirty.
-- pure skill. no power-ups, no coins, no IAP, no ads.
+- semantic, not lexical. you win on what words MEAN, not on spelling tricks.
+- a real game, not a daily puzzle. drop in for a round, climb your rating, leave.
+- one global room of real opponents. play solo at off-peak — solo wins still earn rating.
+- pure pairwise Elo, the same math chess uses. no luck, no power-ups, no IAP, no ads.
 
 ranking
-- pure pairwise Elo. you gain rating by beating opponents who are rated near or above you. losing to someone much stronger barely costs you. losing while learning costs you nothing.
-- five-round placement period. your real rating is hidden until you have a sample size.
-- climb the leaderboard.
+- five-round placement period. your real rating is hidden until you have a sample.
+- after that: a number, a tier, a leaderboard.
+- losing to someone far above you barely costs you. beating someone far below barely earns you. honest math.
 
 private rooms
-- create a 4-character code, share with friends, race head-to-head.
-- four difficulty levels: chill, normal, hard, brutal. private rooms only - the global room is normal difficulty.
-- private rooms don't move your global rating. practice freely.
+- 4-character code, share with friends.
+- four difficulties: chill, normal, hard, expert. (the global room is normal.)
+- private rooms don't move your global rating. practice freely, race friends fairly.
 
 shipped by aaam.dev. quiet, fair, fast.
 ```
 
-(~1280 chars; well within budget; tight first-line hook)
+(~1380 chars; well within budget; tight first-line hook that names the actual mechanic, not a fabricated timer)
 
 **Voice rules** (echoing tir's in-app microcopy):
 
@@ -106,12 +105,14 @@ shipped by aaam.dev. quiet, fair, fast.
 **Use:**
 
 ```
-synonym,vocabulary,puzzle,brain,multiplayer,fast,Elo,competitive,ranked,daily,linguist,thesaurus,trivia
+synonym,vocabulary,semantic,meaning,association,puzzle,brain,multiplayer,Elo,competitive,ranked,linguist
 ```
 
-(99 chars)
+(100 chars)
 
 **Why:** every keyword is missing from title/subtitle/description-noun-density. Apple deduplicates across all indexed fields, so we use this slot exclusively for keywords NOT used elsewhere. No `tir`, `word`, `race`, `target` (already in title/subtitle). No competitor brand names. Singular forms only ([Sonar 2026 §keywords](https://trysonar.app/blog/metadata-optimization-guide)).
+
+**Dropped vs. v1:** `fast` (paired with the killed "90-second rounds" framing — speed is in the description, not a search term we want to compete on), `daily` (we explicitly position as "not a daily puzzle"), `trivia` (wrong genre — tir is association, not knowledge recall), `thesaurus` (overlaps with `synonym` and `vocabulary` for slot value). **Added:** `semantic`, `meaning`, `association` — the actual cognitive verb of the game and what a word-game enthusiast searching for "something like Codenames but solo" would type.
 
 ---
 
@@ -122,11 +123,11 @@ synonym,vocabulary,puzzle,brain,multiplayer,fast,Elo,competitive,ranked,daily,li
 ```text
 the first cut of tir.
 
-- one global room, always running. drop in.
-- 90-second rounds, four options, closest meaning wins the round.
-- pairwise Elo with a placement grace.
-- private rooms with 4 difficulty levels.
-- 30-emoji avatar grid, 5-card onboarding, no signup.
+- one global room, always on. drop in.
+- closest meaning to the target wins the round.
+- pure pairwise Elo, with a five-round placement grace.
+- private rooms with four difficulties: chill, normal, hard, expert.
+- 30-emoji avatar grid, 3-card tutorial, no signup.
 
 shipped by aaam.dev. quiet, fair, fast.
 ```
@@ -200,7 +201,7 @@ Upload order matters — the first three appear in search results.
 | Slot | File | What it shows | Why this order |
 |---|---|---|---|
 | 1 | `06-game.png` | Live game: TARGET earthquake + 4 options | The product. Shown first because the game state is the differentiator, not the menu. |
-| 2 | `05-home.png` | Home: tir wordmark, profile, LIVE round 37, PLAY, leaderboard | Proves the "always live" claim with a real round number + an actual leaderboard. |
+| 2 | `05-home.png` | Home: tir wordmark, profile, LIVE round 37, PLAY, leaderboard | Proves the "always on" claim with a real round number + an actual leaderboard. |
 | 3 | `02-tutorial-win.png` | "reach the target." | Sets the win condition in 4 words for browsers who tap-skim. |
 | 4 | `03-tutorial-move.png` | "pick toward the target." | Explains the move heuristic. |
 | 5 | `04-tutorial-sync.png` | "race together." | Multiplayer beat. 4 avatars + LIVE 4 PLAYERS. |
@@ -208,12 +209,12 @@ Upload order matters — the first three appear in search results.
 
 Caption text per slot (one-liners, ≤ 30 chars; **screenshot caption text is now a ranking signal** as of mid-2025 per [ASO World 2026](https://asoworld.com/insight/app-store-search-algorithm-2026-what-actually-decides-your-keyword-ranking/)):
 
-1. `closest meaning, closest leap`
-2. `one global room, always live`
-3. `reach the target word first`
-4. `closest meaning, biggest leap`
-5. `same word, same time`
-6. `25 seconds to first race`
+1. `closest meaning, biggest leap`
+2. `one global room, always on`
+3. `first mind to the target wins`
+4. `each pick is a leap`
+5. `everyone races the same target`
+6. `pick a name, pick a vibe`
 
 ---
 
