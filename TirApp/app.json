@@ -5,6 +5,7 @@
     "scheme": "tirapp",
     "ios": {
       "bundleIdentifier": "com.tirapp",
+      "supportsTablet": false,
       "googleServicesFile": "./ios/GoogleService-Info.plist"
     },
     "android": {
