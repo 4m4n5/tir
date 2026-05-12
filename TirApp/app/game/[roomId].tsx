@@ -57,7 +57,20 @@ type RosterEntry = {
   // delta can leak onto the popup for ~300ms before commitRoundDeltas
   // overwrites it. See KB §results-popup-must-render-correct-elo-on-first-frame.
   lastRoundDeltaSeq?: number;
+  // Wall-clock ms of the player's last heartbeat (from `lastSeenAt`
+  // on their player doc). Drives the "N online" HUD count — entries
+  // staler than `ACTIVE_PRESENCE_MS` are filtered out so a player who
+  // backgrounded or force-quit stops being counted as present within
+  // a few seconds, instead of lingering until the 5-min reaper. Server
+  // applies the same threshold to the Elo math (see callables.ts
+  // §ACTIVE_PRESENCE_MS).
+  lastSeenAtMs?: number;
 };
+
+// Mirrors `ACTIVE_PRESENCE_MS` on the server (functions/src/callables.ts).
+// Heartbeats fire every 5s; 15s = 3 missed beats. Kept in sync by hand
+// rather than imported because the functions/ package is server-side.
+const ACTIVE_PRESENCE_MS = 15_000;
 
 type RoundResultView = {
   winnerUid: string | null;
@@ -714,6 +727,11 @@ export default function GameScreen() {
         snap.docs.map(doc => {
           const d = doc.data();
           const cached = profileCache.get(doc.id);
+          const ls = d?.lastSeenAt as
+            | { toMillis?: () => number }
+            | undefined;
+          const lastSeenAtMs =
+            ls && typeof ls.toMillis === 'function' ? ls.toMillis() : undefined;
           return {
             id: doc.id,
             currentWord: String(d?.currentWord ?? '—'),
@@ -721,11 +739,47 @@ export default function GameScreen() {
             avatarEmoji: cached?.avatarEmoji,
             lastRoundDelta: d?.lastRoundDelta != null ? Number(d.lastRoundDelta) : undefined,
             lastRoundDeltaSeq: d?.lastRoundDeltaSeq != null ? Number(d.lastRoundDeltaSeq) : undefined,
+            lastSeenAtMs,
           };
         }),
       );
     });
   }, [roomId]);
+
+  // Tick a local "now" every 5s so the live-presence filter (below)
+  // re-evaluates between heartbeat snapshots. Without this, a player
+  // who stopped sending heartbeats wouldn't disappear from the "N
+  // online" count until *some other* `players/*` doc changed and
+  // triggered a roster re-render. 5s aligns with the heartbeat
+  // interval — every active player triggers a roster snapshot at
+  // least that often, so this tick is the safety net for the
+  // last-active-player case.
+  const [presenceNow, setPresenceNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!roomId) return;
+    const id = setInterval(() => setPresenceNow(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, [roomId]);
+
+  // Filter the raw `roster` to entries with a fresh `lastSeenAt`. The
+  // unfiltered `roster` is still retained for lookups (winner name,
+  // avatar, Elo delta render) — only the "online" headcount uses the
+  // filtered view. A player without a `lastSeenAt` at all (legacy
+  // doc shape) is kept as a fallback, since the server's heartbeat
+  // path has been in place since launch and any missing field would
+  // indicate a doc this client doesn't yet understand.
+  const liveRoster = useMemo(
+    () =>
+      roster.filter(r => {
+        if (r.lastSeenAtMs == null) return true;
+        return presenceNow - r.lastSeenAtMs < ACTIVE_PRESENCE_MS;
+      }),
+    [roster, presenceNow],
+  );
+  const liveOthers = useMemo(
+    () => liveRoster.filter(p => p.id !== userId),
+    [liveRoster, userId],
+  );
 
   // Server-time countdown for the photo-finish window.
   useEffect(() => {
@@ -1029,8 +1083,8 @@ export default function GameScreen() {
           </Pressable>
         ) : null}
         <Text style={s.topMeta}
-          accessibilityLabel={`round ${round?.roundSeq ?? 0}, ${others.length + 1} players online, ${myPlayer?.movesThisRound ?? 0} moves`}>
-          round {round?.roundSeq ?? '—'} · {others.length + 1} online
+          accessibilityLabel={`round ${round?.roundSeq ?? 0}, ${liveOthers.length + 1} players online, ${myPlayer?.movesThisRound ?? 0} moves`}>
+          round {round?.roundSeq ?? '—'} · {liveOthers.length + 1} online
           {(myPlayer?.movesThisRound ?? 0) > 0 ? ` · ${myPlayer!.movesThisRound} moves` : ''}
         </Text>
       </View>

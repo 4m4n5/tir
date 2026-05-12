@@ -15,6 +15,19 @@ const REGION = 'us-central1';
 // the round advances. See AGENTS.md §Round phase machine.
 const RESULTS_BARRIER_MS = 3000;
 
+// A player is "actively present in the round" if their last heartbeat
+// landed within this window. The client sends a heartbeat every 5s
+// from `[roomId].tsx`, so 15s = 3 missed heartbeats — tight enough to
+// catch a backgrounded/force-quit app within a few seconds, generous
+// enough to absorb a Cloud Function cold start + cellular jitter.
+//
+// Distinct from `STALE_PRESENCE_MS` (60s) used by the scheduler in
+// `advanceFromResults` for between-round `memberIds` pruning — that
+// path is more conservative because pruning kicks a player out of the
+// room entirely, whereas this threshold only decides who counts as a
+// participant for THIS round's Elo math.
+const ACTIVE_PRESENCE_MS = 15_000;
+
 function db() {
   return admin.firestore();
 }
@@ -318,10 +331,33 @@ export const submitMove = onCall({region: REGION}, async request => {
       // no rows, and roundsPlayed/Elo never advanced. Mirrors the same
       // "frozen at finish_window" contract that already applies to
       // primaryWinnerUid / windowFinishers / winnerMoves / winnerSnap.
+      //
+      // CRITICAL: filter `liveMemberIds` to players whose `lastSeenAt`
+      // is within `ACTIVE_PRESENCE_MS`. Without this, a player who
+      // backgrounded or force-quit the app (no React unmount, so no
+      // `leaveRoom` callable, so still in memberIds) was counted as a
+      // loser in the Elo math whenever someone else won — a real Elo
+      // grief vector. The winner is always included (they just
+      // submitted, so they're trivially present, but the playersSnap
+      // we read above is from *before* this transaction so their
+      // `lastSeenAt` on it is still the previous heartbeat).
       const liveMemberIds = (roomSnap.data()?.memberIds ?? []) as string[];
-      const finishWindowMemberIds = liveMemberIds.includes(uid)
-        ? liveMemberIds
-        : [...liveMemberIds, uid];
+      const presenceNow = Date.now();
+      const freshPresenceIds = new Set<string>();
+      for (const ps of playersSnap.docs) {
+        if (!ps.exists) continue;
+        const ls = ps.data()?.lastSeenAt as admin.firestore.Timestamp | undefined;
+        if (ls && presenceNow - ls.toMillis() < ACTIVE_PRESENCE_MS) {
+          freshPresenceIds.add(ps.id);
+        }
+      }
+      freshPresenceIds.add(uid);
+      const finishWindowMemberIds = liveMemberIds.filter(m =>
+        freshPresenceIds.has(m),
+      );
+      if (!finishWindowMemberIds.includes(uid)) {
+        finishWindowMemberIds.push(uid);
+      }
 
       roundPatch = {
         phase: 'finish_window',
